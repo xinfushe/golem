@@ -4,8 +4,9 @@ from .proto import DefaultProto
 
 
 class DefaultJSONSender(object):
-    def __init__(self, host, timeout, proto_ver):
-        self.transport = DefaultHttpSender(host, timeout)
+    def __init__(self, host, timeout, proto_ver,
+                 session: 'Optional[requests.Session]' = None):
+        self.transport = DefaultHttpSender(host, timeout, session)
         self.proto = DefaultProto(proto_ver)
 
     @log_error(reraise=True)

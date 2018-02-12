@@ -1,7 +1,10 @@
 import logging
-from pydispatch import dispatcher
 import threading
 import queue
+from typing import Optional
+
+from pydispatch import dispatcher
+import requests
 
 from golem.decorators import log_error
 from golem.task.taskrequestorstats import CurrentStats, FinishedTasksStats
@@ -17,12 +20,14 @@ log = logging.getLogger('golem.monitor')
 
 class SenderThread(threading.Thread):
     def __init__(self, node_info, monitor_host, monitor_request_timeout,
-                 monitor_sender_thread_timeout, proto_ver):
+                 monitor_sender_thread_timeout, proto_ver,
+                 session: Optional[requests.Session] = None):
         super(SenderThread, self).__init__()
         self.queue = queue.Queue()
         self.stop_request = threading.Event()
         self.node_info = node_info
-        self.sender = Sender(monitor_host, monitor_request_timeout, proto_ver)
+        self.sender = Sender(monitor_host, monitor_request_timeout, proto_ver,
+                             session)
         self.monitor_sender_thread_timeout = monitor_sender_thread_timeout
 
     def send(self, o):
@@ -47,6 +52,7 @@ class SystemMonitor(object):
         self.meta_data = meta_data
         self.node_info = NodeInfoModel(meta_data.cliid, meta_data.sessid)
         self.config = monitor_config
+        self._session = requests.Session()
         dispatcher.connect(self.dispatch_listener, signal='golem.monitor')
         dispatcher.connect(self.p2p_listener, signal='golem.p2p')
 
@@ -62,7 +68,8 @@ class SystemMonitor(object):
                 host,
                 request_timeout,
                 sender_thread_timeout,
-                proto_ver
+                proto_ver,
+                self._session
             )
         return self._sender_thread
 
@@ -84,10 +91,9 @@ class SystemMonitor(object):
             log.exception('Port reachability check error')
 
     def ping_request(self, port):
-        import requests
         timeout = 1  # seconds
         try:
-            response = requests.post(
+            response = self._session.post(
                 '%sping-me' % (self.config['HOST'],),
                 data={'port': port, },
                 timeout=timeout,
