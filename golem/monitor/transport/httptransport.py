@@ -10,7 +10,7 @@ log = logging.getLogger('golem.monitor.transport')
 
 class DefaultHttpSender(object):
     def __init__(self, url, request_timeout,
-                 session: Optional[requests.Session] = None):
+                 session: Optional[requests.Session] = None) -> None:
         if session is None:
             session = requests.Session()
         self._session = session
